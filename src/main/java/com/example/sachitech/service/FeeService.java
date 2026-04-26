@@ -151,8 +151,10 @@ public class FeeService {
         FeeTransaction tx = new FeeTransaction();
         tx.setFeeRecord(record);
         tx.setInstallmentAmount(req.installmentAmount());
+        tx.setAmount(req.installmentAmount());
         tx.setPaymentDate(req.paymentDate() != null ? req.paymentDate() : LocalDate.now());
         tx.setTransactionType(req.transactionType() != null ? req.transactionType().toUpperCase() : "CASH");
+        tx.setPaymentMode(req.transactionType() != null ? req.transactionType().toUpperCase() : "CASH");
         tx.setReceiptNo(req.receiptNo() != null ? req.receiptNo() : generateReceiptNo());
         feeTransactionRepository.save(tx);
 

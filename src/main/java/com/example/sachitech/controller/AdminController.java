@@ -55,6 +55,10 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
         // ================= STUDENT =================
         if (role == Role.STUDENT) {
 
+            Double initialPayment = payload.get("initialPayment") != null
+                    ? Double.valueOf(payload.get("initialPayment").toString())
+                    : 0.0;
+
             StudentProfile profile = new StudentProfile();
             profile.setUser(user);
             profile.setPhone((String) payload.get("phone"));
@@ -63,39 +67,54 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
                         ? LocalDate.parse(payload.get("admissionDate").toString())
                         : LocalDate.now()
             );
+            profile.setFeePaid(initialPayment > 0);
+
+            // Build course name string from selected courses
+            List<?> rawCourses = (List<?>) payload.get("courseIds");
+            List<Course> resolvedCourses = new java.util.ArrayList<>();
+            if (rawCourses != null) {
+                for (Object obj : rawCourses) {
+                    Long courseId = Long.valueOf(obj.toString());
+                    courseRepository.findById(courseId).ifPresent(resolvedCourses::add);
+                }
+            }
+
+            // Set the course name on the profile (comma-joined)
+            if (!resolvedCourses.isEmpty()) {
+                String courseNames = resolvedCourses.stream()
+                        .map(Course::getName)
+                        .collect(Collectors.joining(", "));
+                profile.setCourse(courseNames);
+            }
 
             studentProfileRepository.save(profile);
 
-            List<?> rawCourses = (List<?>) payload.get("courseIds");
+            // Create FeeRecord + initial transaction for each enrolled course
+            for (Course course : resolvedCourses) {
+                double totalFee = course.getTotalFee() != null ? course.getTotalFee() : 0.0;
 
-            if (rawCourses != null) {
-                for (Object obj : rawCourses) {
+                FeeRecord record = new FeeRecord();
+                record.setStudent(profile);
+                record.setCourse(course);
+                record.setTotalFeeAtEnrollment(totalFee);
+                record.setAmountPaid(initialPayment);
+                record.setPendingAmount(totalFee - initialPayment);
+                record.setLastTransactionDate(LocalDate.now());
 
-                    Long courseId = Long.valueOf(obj.toString());
-                    Course course = courseRepository.findById(courseId).orElseThrow();
+                feeRecordRepository.save(record);
 
-                    Double initialPayment = payload.get("initialPayment") != null
-                            ? Double.valueOf(payload.get("initialPayment").toString())
-                            : 0.0;
+                // Initial payment transaction
+                if (initialPayment > 0) {
+                    FeeTransaction txn = new FeeTransaction();
+                    txn.setFeeRecord(record);
+                    txn.setAmount(initialPayment);
+                    txn.setInstallmentAmount(initialPayment);
+                    txn.setPaymentDate(LocalDate.now());
+                    txn.setPaymentMode("CASH");
+                    txn.setTransactionType("CASH");
+                    txn.setReceiptNo("INIT-" + profile.getId() + "-" + course.getId());
 
-                    // ✅ Fee Record
-                    FeeRecord record = new FeeRecord();
-                    record.setStudent(profile);
-                    record.setTotalFeeAtEnrollment(course.getTotalFee());
-                    record.setAmountPaid(initialPayment);
-
-                    feeRecordRepository.save(record);
-
-                    // ✅ Transaction
-                    if (initialPayment > 0) {
-                        FeeTransaction txn = new FeeTransaction();
-                        txn.setFeeRecord(record);
-                        txn.setAmount(initialPayment);
-                        txn.setPaymentDate(LocalDate.now());
-                        txn.setPaymentMode("CASH");
-
-                        feeTransactionRepository.save(txn);
-                    }
+                    feeTransactionRepository.save(txn);
                 }
             }
         }
@@ -122,17 +141,8 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
                 trainerProfileRepository.save(trainer);
             }
 
-            // Salary
-            if (payload.get("salary") != null) {
-                Double salary = Double.valueOf(payload.get("salary").toString());
-
-                FeeTransaction txn = new FeeTransaction();
-                txn.setAmount(salary);
-                txn.setPaymentDate(LocalDate.now());
-                txn.setPaymentMode("CASH");
-
-                feeTransactionRepository.save(txn);
-            }
+            // Note: Salary is stored as metadata only — not as a FeeTransaction
+            // (FeeTransactions are student-fee-specific and require a FeeRecord)
         }
 
         return ResponseEntity.ok(Map.of("message", role + " created successfully"));
@@ -142,10 +152,33 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
     }
 }
     @GetMapping("/users")
-    public List<UserDTO> getAllUsers() {
+    public List<Map<String, Object>> getAllUsers() {
         return userRepository.findAll(Sort.by("id").descending())
                 .stream()
-                .map(user -> new UserDTO(user.getId(), user.getName(), user.getEmail(), user.getRole()))
+                .map(user -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", user.getId());
+                    map.put("name", user.getName());
+                    map.put("email", user.getEmail());
+                    map.put("role", user.getRole());
+
+                    // Include student profile data if available
+                    StudentProfile sp = user.getStudentProfile();
+                    if (sp != null) {
+                        map.put("phone", sp.getPhone());
+                        map.put("course", sp.getCourse());
+                        map.put("admissionDate", sp.getAdmissionDate() != null ? sp.getAdmissionDate().toString() : null);
+                    }
+
+                    // Include trainer profile data if available
+                    TrainerProfile tp = user.getTrainerProfile();
+                    if (tp != null) {
+                        map.put("phone", tp.getPhone());
+                        map.put("specialization", tp.getSpecialization());
+                    }
+
+                    return map;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -258,7 +291,7 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
     @GetMapping("/studentdata/all")
     public List<Map<String, Object>> getAllStudentProfiles() {
 
-        return studentProfileRepository.findAll(Sort.by("admissionDate").descending())
+        return studentProfileRepository.findAll(Sort.by("id").descending())
                 .stream().map(profile -> {
 
                     Map<String, Object> map = new HashMap<>();
