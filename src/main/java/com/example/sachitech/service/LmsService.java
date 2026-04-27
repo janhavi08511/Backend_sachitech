@@ -30,9 +30,11 @@ public class LmsService {
             Map uploadResult = cloudinary.uploader().upload(
                     file.getBytes(),
                     ObjectUtils.asMap(
-                            "resource_type", "auto",   // ✅ supports pdf + images
-                            "type", "upload",          // ✅ PUBLIC access (fixes 401)
-                            "folder", "lms_files"      // ✅ organized storage
+                            "resource_type", "raw",   // 🔥 FORCE PDF SUPPORT
+                            "type", "upload",         // 🔥 PUBLIC ACCESS (NO 401)
+                            "folder", "lms_files",
+                            "use_filename", true,
+                            "unique_filename", true
                     )
             );
 
@@ -42,6 +44,7 @@ public class LmsService {
             throw new RuntimeException("Cloudinary upload failed", e);
         }
     }
+
 
     // ─────────────────────────────────────────────
     // CONTENT UPLOAD
