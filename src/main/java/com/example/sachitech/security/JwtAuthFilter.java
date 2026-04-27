@@ -24,15 +24,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final CustomUserDetailsService userDetailsService;
 
     @Override
-    protected void doFilterInternal(@org.springframework.lang.NonNull HttpServletRequest request,
-                                    @org.springframework.lang.NonNull HttpServletResponse response,
-                                    @org.springframework.lang.NonNull FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
             throws ServletException, IOException {
+
+        // ✅ ✅ CRITICAL FIX: Allow preflight requests immediately
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         try {
             final String authHeader = request.getHeader("Authorization");
 
-            // ❌ No token → skip (don't block publicly accessible endpoints)
+            // ✅ No token → continue (public endpoints allowed)
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 filterChain.doFilter(request, response);
                 return;
@@ -40,9 +47,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             String token = authHeader.substring(7);
 
-            // Validate if the string even looks like a JWT before parsing
+            // ✅ Basic JWT format check
             if (token.chars().filter(ch -> ch == '.').count() != 2) {
-                System.out.println("⚠️ Malformed JWT detected");
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -50,10 +56,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String email = jwtService.extractEmail(token);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                // ✅ Validate token
                 if (jwtService.isTokenValid(token, userDetails)) {
+
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
@@ -66,18 +73,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    System.out.println("✅ JWT validated for: " + email);
-                } else {
-                    System.out.println("⚠️ JWT token invalid for: " + email);
                 }
             }
 
         } catch (JwtException e) {
-            System.out.println("⚠️ JWT Error: " + e.getMessage());
-            // Don't throw - let it continue without authentication
-            // Spring will handle the authorization check
+            System.out.println("JWT Error: " + e.getMessage());
         } catch (Exception e) {
-            System.out.println("⚠️ Filter Exception: " + e.getMessage());
             e.printStackTrace();
         }
 

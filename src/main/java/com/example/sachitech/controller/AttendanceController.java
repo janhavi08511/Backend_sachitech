@@ -3,6 +3,7 @@ package com.example.sachitech.controller;
 import com.example.sachitech.entity.*;
 import com.example.sachitech.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -28,6 +29,7 @@ public class AttendanceController {
     // Returns students enrolled in a course — uses FeeRecord as enrollment source
     // (FeeRecord is populated by the fee enrollment flow and DataSheetSeeder)
     // ─────────────────────────────────────────────────────────────────────────
+    @Cacheable(value = "courseStudents", key = "#courseId")
     @GetMapping("/course/{courseId}/students")
     @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
     public ResponseEntity<List<Map<String, Object>>> getStudentsForCourse(@PathVariable Long courseId) {

@@ -121,6 +121,10 @@ public class LmsService {
         return contentRepository.findByCourseId(courseId);
     }
 
+    public List<LmsContent> getContentByInternship(Long internshipId) {
+        return contentRepository.findByInternshipId(internshipId);
+    }
+
     public List<LmsSubmission> getAllSubmissions() {
         return submissionRepository.findAll();
     }

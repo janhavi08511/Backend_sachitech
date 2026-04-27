@@ -16,9 +16,18 @@ public class CorsConfig {
 
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of("https://www.sachitechhub.in","https://www.sachitech.in")); // ✅ Added 8080
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedOrigins(List.of(
+                "https://sachitechhub.in",
+                "https://www.sachitechhub.in"
+        ));
+
+        config.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+        ));
+
         config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
+
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

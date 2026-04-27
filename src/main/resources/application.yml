@@ -1,31 +1,22 @@
-server:
-  port: 8080
-  address: 0.0.0.0
-
 spring:
   datasource:
-    url: jdbc:mysql://gateway01.ap-southeast-1.prod.alicloud.tidbcloud.com:4000/tms_db?sslMode=VERIFY_IDENTITY
-    username: 21c5u9UWuopDpJo.root
-    password: A2L0cZKKVrV5SZ3d
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
 
   jpa:
-    hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.MySQL8Dialect
     properties:
       hibernate:
-        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 20MB
-      max-request-size: 25MB
-
-  cache:
-    type: simple
-
-lms:
-  upload:
-    dir: /app/uploads/lms
+server:
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024

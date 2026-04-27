@@ -32,6 +32,7 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -66,7 +67,7 @@ public class ReportController {
     // ─────────────────────────────────────────────────────────────────────────
     // Dashboard data endpoints
     // ─────────────────────────────────────────────────────────────────────────
-
+    @Cacheable("dashboardSummary")
     @GetMapping("/reports/summary")
     public ResponseEntity<DashboardSummaryDTO> getSummary() {
         return ResponseEntity.ok(dashboardService.getSummary());

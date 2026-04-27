@@ -3,6 +3,8 @@ package com.example.sachitech.controller;
 import com.example.sachitech.dto.*;
 import com.example.sachitech.entity.*;
 import com.example.sachitech.repository.*;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -35,8 +37,9 @@ public class AdminController {
 
     // ========================= USER =========================
 
-  @PostMapping("/user/create-full")
-@Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    @PostMapping("/user/create-full")
+    @Transactional
 public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload) {
     try {
 
@@ -151,6 +154,7 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
         throw new RuntimeException("Creation failed", e);
     }
 }
+    @Cacheable("users")
     @GetMapping("/users")
     public List<Map<String, Object>> getAllUsers() {
         return userRepository.findAll(Sort.by("id").descending())
@@ -162,15 +166,12 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
                     map.put("email", user.getEmail());
                     map.put("role", user.getRole());
 
-                    // Include student profile data if available
                     StudentProfile sp = user.getStudentProfile();
                     if (sp != null) {
                         map.put("phone", sp.getPhone());
                         map.put("course", sp.getCourse());
-                        map.put("admissionDate", sp.getAdmissionDate() != null ? sp.getAdmissionDate().toString() : null);
                     }
 
-                    // Include trainer profile data if available
                     TrainerProfile tp = user.getTrainerProfile();
                     if (tp != null) {
                         map.put("phone", tp.getPhone());
@@ -179,9 +180,10 @@ public ResponseEntity<?> createFullUser(@RequestBody Map<String, Object> payload
 
                     return map;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
+    @CacheEvict(value = "users", allEntries = true)
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         try {
